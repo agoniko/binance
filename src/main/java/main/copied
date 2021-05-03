@@ -1,0 +1,67 @@
+
+		while (true) {
+			//Thread statsUpdater = new StatsUpdaterTelegram();
+			//statsUpdater.start();
+			if (errors > 10) {
+				String msg = "Ci sono stati 10 errori di riconnesione, Stacco";
+				bot.sendSignal(msg);
+				break;
+			}
+			try {
+				for (int i = 0; i < symbols.size(); i++) {
+					String symbol = symbols.get(i);
+					ArrayList<Candlestick> candles = (ArrayList<Candlestick>) client.getCandlestickBars(symbol,
+							interval);
+					double movingAverageBuySignals = MovingAverages.percentOfBuySignals(candles);
+					double macdHistLevel = Oscillators.getMACD(candles);
+					double rsi6 = Oscillators.getRSI6(candles);
+					double rsi14 = Oscillators.getRSI14(candles);
+					BollingerBand bands = new BollingerBand(candles);
+					double price = Double.parseDouble(candles.get(candles.size() - 1).getClose());
+
+					if (/*rsi6 > 70 && */!buySymbols.contains(symbol)) {
+						if (movingAverageBuySignals > 90 && macdHistLevel > 0) {
+							buySymbols.add(symbol);
+							String msg = "COMPRA " + symbol + ", strategia: MovingAverages/MACD";
+							bot.sendSignal(msg);
+							if (sellSymbols.contains(symbol)) {
+								sellSymbols.remove(symbol);
+							}
+							// Questa chiamata è bloccante
+							checkForAsset(symbol, client);
+						}
+					}
+					if (rsi6 < 70 && !sellSymbols.contains(symbol) && buySymbols.contains(symbol)) {
+						if (movingAverageBuySignals < 50) {
+							sellSymbols.add(symbol);
+							String msg = "VENDI " + symbol + ", strategia: MovingAverages/MACD";
+							bot.sendSignal(msg);
+							buySymbols.remove(symbol);
+						}
+					}
+					if (rsi14 < 30 && bands.getLower() > price && !bollingerBuySymbols.contains(symbol)) {
+						bollingerBuySymbols.add(symbol);
+					}
+					if (rsi14 > 70 && bands.getUpper() > price && !bollingerBuySymbols.contains(symbol)) {
+						bollingerSellSymbols.add(symbol);
+					}
+					if (bollingerBuySymbols.contains(symbol) && rsi6 > 30 && rsi14 < 30) {
+						String msg = "COMPRA SUBITO " + symbol + ", Strategia: Bollinger/RSI";
+						bot.sendSignal(msg);
+						bollingerBuySymbols.remove(symbol);
+						// Questa chiamata è bloccante
+						checkForAsset(symbol, client);
+					}
+					if (bollingerSellSymbols.contains(symbol) && rsi6 < 70 && rsi14 > 70) {
+						String msg = "VENDI SUBITO " + symbol + ", Strategia: Bollinger/RSI";
+						bot.sendSignal(msg);
+						bollingerSellSymbols.remove(symbol);
+					}
+				}
+			} catch (BinanceApiException e) {
+				client = clientInitialization();
+				errors++;
+				String msg = "Fin'ora ci sono stati " + errors + " tentativi di riconnessione";
+				bot.sendSignal(msg);
+			}
+		}
