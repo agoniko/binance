@@ -35,6 +35,6 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/Nic/Downloads/ta-lib-0.4.0.jar"/>
+	<classpathentry kind="lib" path="/home/nic/eclipse/workspace/binance/ta-lib-0.4.0.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

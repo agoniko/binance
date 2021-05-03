@@ -1,10 +1,18 @@
 package main;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.*;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
@@ -12,6 +20,7 @@ public class BotController extends TelegramLongPollingBot {
 
 	public static BotController instance = null;
 	private TelegramBotsApi api;
+	final String chatId = "567302496";
 
 	public static BotController getInstance() {
 		if (instance == null) {
@@ -21,7 +30,7 @@ public class BotController extends TelegramLongPollingBot {
 	}
 
 	private BotController() {
-		
+
 	}
 
 	public String getBotUsername() {
@@ -34,27 +43,46 @@ public class BotController extends TelegramLongPollingBot {
 	}
 
 	public void sendSignal(String msg) {
-		String chatId = "567302496";
 		SendMessage sendMessage = new SendMessage();
 		sendMessage.setChatId(chatId);
 		sendMessage.setText(msg);
 		try {
 			execute(sendMessage);
 		} catch (TelegramApiException e) {
-			// gestione errore in invio
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 
 	public void onUpdateReceived(Update update) {
-		String msg = update.getMessage().getText();
-		String chatId = update.getMessage().getChatId().toString();
+		if (update.hasCallbackQuery()) {
+			CallbackQuery callBack = update.getCallbackQuery();
+			String msg = callBack.getData();
+			String op = msg.substring(0, msg.indexOf(" "));
+			if (op.equals("compra")) {
+				String symbol = msg.substring(msg.indexOf(" ") + 1);
+				TransactionsController.buy(symbol, 50);
+			}
+		}
+	}
+
+	public void sendBuyButton(String testo) {
+		List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+		List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+		String symbol = testo.substring(0, testo.indexOf(" "));
+		buttons1.add(new InlineKeyboardButton().setText("COMPRA").setCallbackData("compra " + symbol));
+		buttons.add(buttons1);
+
+		InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+		markupKeyboard.setKeyboard(buttons);
 		SendMessage sendMessage = new SendMessage();
 		sendMessage.setChatId(chatId);
-		sendMessage.setText(msg);
+		sendMessage.setText(testo);
+		sendMessage.setReplyMarkup(markupKeyboard);
 		try {
 			execute(sendMessage);
 		} catch (TelegramApiException e) {
-			// gestione errore in invio
+			e.printStackTrace();
 		}
 	}
 }

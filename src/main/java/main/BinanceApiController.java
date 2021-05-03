@@ -17,7 +17,7 @@ public class BinanceApiController extends Thread {
 			"vUpBhifeRJR7R3va0VI4WA489XNwEVtXDYK7OsmZ9AS7KKDmtDQ5TZA3tQtHB8Te");
 
 	final CandlestickInterval interval = CandlestickInterval.FOUR_HOURLY;
-	BinanceApiRestClient client;
+	static BinanceApiRestClient client = null;
 
 	int errors = 0;
 
@@ -29,6 +29,10 @@ public class BinanceApiController extends Thread {
 		return factory.newRestClient();
 	}
 
+	public static BinanceApiRestClient getClient() {
+		return client;
+	}
+
 	@Override
 	public void run() {
 		BotController bot = BotController.getInstance();
@@ -38,23 +42,33 @@ public class BinanceApiController extends Thread {
 		ArrayList<String> bollingerBuySymbols = new ArrayList<String>();
 		ArrayList<String> bollingerSellSymbols = new ArrayList<String>();
 		bot.sendSignal("Inizio ora con intervallo: " + interval.toString());
-
+		bot.sendBuyButton("DOGEUSDT ha rotto le palle");
 		while (true) {
 			for (int i = 0; i < symbols.size(); i++) {
 				String symbol = symbols.get(i);
 				ArrayList<Candlestick> candles = (ArrayList<Candlestick>) client.getCandlestickBars(symbol, interval);
-				if (candles.size() > 25) {
-					if (Oscillators.getRSI14(candles) < 30) {
-						bot.sendSignal(symbol + "Ha RSI14 < 30 su candele da 4h");
+				if (candles.size() > 20) {
+					BollingerBand bands = new BollingerBand(candles);
+					double price = Double.parseDouble(candles.get(candles.size() - 1).getClose());
+
+					if (!buySymbols.contains(symbol)) {
+						if (ultimeCandeleSopraLaMedia(5, candles)) {
+							bot.sendBuyButton(symbol + " ha rotto la resistenza");
+							buySymbols.add(symbol);
+						}
 					}
-					if (Oscillators.getRSI6(candles) < 30) {
-						bot.sendSignal(symbol + "Ha RSI6 < 30 su candele da 4h");
+
+					if (Oscillators.getRSI14(candles) < 30 && price < bands.getLower()
+							&& !bollingerBuySymbols.contains(symbol)) {
+						bollingerBuySymbols.add(symbol);
+					}
+
+					if (bollingerBuySymbols.contains(symbol) && Oscillators.getRSI14(candles) > 30) {
+						bot.sendSignal(symbol + " aveva rotto il supporto ma ora rsi e tornato sopra a 30");
 					}
 				}
 			}
-			System.out.println("Checcati tutti");
 		}
-
 	}
 
 	private void checkForAsset(String symbol, BinanceApiRestClient client) {
@@ -68,6 +82,23 @@ public class BinanceApiController extends Thread {
 			bot.sendSignal("Eccezione nel checker dell'asset");
 		}
 		System.out.println("Riprendo");
+	}
+
+	private boolean ultimeCandeleSopraLaMedia(int n, ArrayList<Candlestick> candles) {
+		double currentPrice = Double.parseDouble(candles.get(candles.size() - 1).getClose());
+		BollingerBand bbands = new BollingerBand(candles);
+		if (currentPrice < bbands.getUpper()) {
+			return false;
+		}
+		for (int i = candles.size() - 1; i > candles.size() - n; i--) {
+			ArrayList<Candlestick> subList = new ArrayList<Candlestick>(candles.subList(0, i));
+			double price = Double.parseDouble(subList.get(subList.size() - 1).getClose());
+			BollingerBand bands = new BollingerBand(subList);
+			if (price < bands.getMiddle() || Oscillators.getRSI14(subList) < 70) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 }
