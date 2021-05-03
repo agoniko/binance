@@ -62,6 +62,9 @@ public class BotController extends TelegramLongPollingBot {
 			if (op.equals("compra")) {
 				String symbol = msg.substring(msg.indexOf(" ") + 1);
 				TransactionsController.buy(symbol, 50);
+			} else if (op.equals("vendi")) {
+				String symbol = msg.substring(msg.indexOf(" ") + 1);
+				TransactionsController.sell(symbol, 50);
 			}
 		}
 	}
@@ -71,6 +74,26 @@ public class BotController extends TelegramLongPollingBot {
 		List<InlineKeyboardButton> buttons1 = new ArrayList<>();
 		String symbol = testo.substring(0, testo.indexOf(" "));
 		buttons1.add(new InlineKeyboardButton().setText("COMPRA").setCallbackData("compra " + symbol));
+		buttons.add(buttons1);
+
+		InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
+		markupKeyboard.setKeyboard(buttons);
+		SendMessage sendMessage = new SendMessage();
+		sendMessage.setChatId(chatId);
+		sendMessage.setText(testo);
+		sendMessage.setReplyMarkup(markupKeyboard);
+		try {
+			execute(sendMessage);
+		} catch (TelegramApiException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSellButton(String testo) {
+		List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+		List<InlineKeyboardButton> buttons1 = new ArrayList<>();
+		String symbol = testo.substring(0, testo.indexOf(" "));
+		buttons1.add(new InlineKeyboardButton().setText("VENDI").setCallbackData("vendi " + symbol));
 		buttons.add(buttons1);
 
 		InlineKeyboardMarkup markupKeyboard = new InlineKeyboardMarkup();
