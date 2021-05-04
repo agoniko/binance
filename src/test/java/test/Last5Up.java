@@ -13,7 +13,7 @@ import main.BollingerBand;
 import main.MyFunctions;
 import main.Oscillators;
 
-public class Checker extends Thread {
+public class Last5Up extends Thread {
 
 	private static BinanceApiClientFactory factory = BinanceApiClientFactory.newInstance(
 			"m4SuuUwia895qcjuM9fwz54A8bYiAY9I6kv4P0OtG3bs2BOyuqNbu57oYD6ng4Z0",
@@ -26,7 +26,7 @@ public class Checker extends Thread {
 	private Double amount = null;
 	Long currentTime;
 
-	public Checker() {
+	public Last5Up() {
 		client = factory.newRestClient();
 	}
 
@@ -44,7 +44,7 @@ public class Checker extends Thread {
 			}
 		}
 		System.out.println();
-
+		allCandles = sort(allCandles);
 		currentTime = allCandles.get(0).get(0).getOpenTime();
 		for (int i = 0; i < allCandles.size(); i++) {
 			ArrayList<Candlestick> candles = allCandles.get(i);
@@ -137,6 +137,7 @@ public class Checker extends Thread {
 				return candles.get(i).getCloseTime();
 			}
 		}
+		setAmountToNull();
 		return null;
 	}
 

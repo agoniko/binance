@@ -37,6 +37,8 @@ public interface MyFunctions {
 		symbols.remove("EURUSDT");
 		symbols.remove("USDCUSDT");
 		symbols.remove("BUSDUSDT");
+		symbols.remove("BKRWUSDT");
+		symbols.remove("STORMUSDT");
 
 		return symbols;
 	}
