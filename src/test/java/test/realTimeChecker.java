@@ -8,6 +8,7 @@ import com.binance.api.client.BinanceApiClientFactory;
 import com.binance.api.client.BinanceApiRestClient;
 import com.binance.api.client.domain.market.Candlestick;
 import com.binance.api.client.domain.market.CandlestickInterval;
+import com.binance.api.client.exception.BinanceApiException;
 
 import main.BollingerBand;
 import main.MyFunctions;
@@ -19,7 +20,7 @@ public class realTimeChecker extends Thread {
 			"vUpBhifeRJR7R3va0VI4WA489XNwEVtXDYK7OsmZ9AS7KKDmtDQ5TZA3tQtHB8Te");
 
 	private BinanceApiRestClient client;
-	private CandlestickInterval interval = CandlestickInterval.FIFTEEN_MINUTES;
+	private CandlestickInterval interval = CandlestickInterval.ONE_MINUTE;
 
 	private double balance = 50.0;
 	private Double amount = null;
@@ -33,44 +34,54 @@ public class realTimeChecker extends Thread {
 	public void run() {
 		ArrayList<String> symbols = MyFunctions.getAllUSDTSymbol(client);
 		while (true) {
-			for (int i = 0; i < symbols.size(); i++) {
-				String symbol = symbols.get(i);
-				ArrayList<Candlestick> candles = (ArrayList<Candlestick>) client.getCandlestickBars(symbol, interval);
-				ArrayList<Candlestick> subList = new ArrayList<Candlestick>(candles.subList(0, candles.size() - 1));
-				BollingerBand subBands = new BollingerBand(subList);
+			try {
+				for (int i = 0; i < symbols.size(); i++) {
+					String symbol = symbols.get(i);
+					ArrayList<Candlestick> candles = (ArrayList<Candlestick>) client.getCandlestickBars(symbol,
+							interval);
+					ArrayList<Candlestick> subList = new ArrayList<Candlestick>(candles.subList(0, candles.size() - 1));
+					BollingerBand subBands = new BollingerBand(subList);
 
-				double lastCandleClosePrice = Double.parseDouble(subList.get(subList.size() - 1).getClose());
-				if (lastCandleClosePrice > subBands.getUpper()) {
-					double price = Double.parseDouble(candles.get(candles.size() - 1).getClose());
-					BollingerBand bands = new BollingerBand(candles);
-					if (price > bands.getUpper()) {
-						checkForSell(symbol);
-						System.out.println("saldo: " + balance);
+					double lastCandleClosePrice = Double.parseDouble(subList.get(subList.size() - 1).getClose());
+					if (lastCandleClosePrice > subBands.getUpper()) {
+						double price = Double.parseDouble(candles.get(candles.size() - 1).getClose());
+						BollingerBand bands = new BollingerBand(candles);
+						if (price > bands.getUpper()) {
+							checkForSell(symbol);
+							System.out.println("saldo: " + balance);
+						}
+
 					}
 
 				}
 
+			} catch (BinanceApiException e) {
+				client = factory.newRestClient();
 			}
-
 		}
 	}
 
 	public void checkForSell(String symbol) {
 		double price = Double.parseDouble(client.getPrice(symbol).getPrice());
-		double stopPrice = price * 98 / 100;
+		double stopPrice = price * 99 / 100;
 		double oldPrice = price;
 		System.out.println("Comprato: " + symbol + " a: " + price);
 
 		while (true) {
-			aggiornaSaldo(price);
-			if (price <= stopPrice) {
-				setAmountToNull();
-				return;
-			} else if (price > oldPrice) {
-				stopPrice = price * 98.5 / 100;
+			try {
+				aggiornaSaldo(price);
+				if (price <= stopPrice) {
+					setAmountToNull();
+					return;
+				} else if (price > oldPrice) {
+					stopPrice = price * 99 / 100;
+					oldPrice = price;
+				}
+				price = Double.parseDouble(client.getPrice(symbol).getPrice());
+			} catch (BinanceApiException e) {
+				client = factory.newRestClient();
 			}
-			oldPrice = price;
-			price = Double.parseDouble(client.getPrice(symbol).getPrice());
+
 		}
 	}
 

@@ -6,10 +6,22 @@ import org.glassfish.jersey.message.internal.NewCookieProvider;
 
 import com.binance.api.client.BinanceApiClientFactory;
 import com.binance.api.client.BinanceApiRestClient;
+import com.binance.api.client.domain.OrderSide;
+import com.binance.api.client.domain.OrderType;
+import com.binance.api.client.domain.TimeInForce;
 import com.binance.api.client.domain.account.Account;
+import com.binance.api.client.domain.account.NewOrder;
+import com.binance.api.client.domain.general.ExchangeFilter;
+import com.binance.api.client.domain.general.ExchangeInfo;
+import com.binance.api.client.domain.general.FilterType;
 import com.binance.api.client.domain.market.Candlestick;
 import com.binance.api.client.domain.market.CandlestickInterval;
 import com.binance.api.client.exception.BinanceApiException;
+import com.binance.api.client.domain.general.SymbolFilter;
+import com.binance.api.client.domain.general.SymbolInfo;
+import com.binance.api.client.domain.general.RateLimit;
+import static com.binance.api.client.domain.account.NewOrder.limitBuy;
+import static com.binance.api.client.domain.account.NewOrder.marketBuy;
 
 public class BinanceApiController extends Thread {
 	private static BinanceApiClientFactory factory = BinanceApiClientFactory.newInstance(
@@ -33,48 +45,67 @@ public class BinanceApiController extends Thread {
 		return client;
 	}
 
+	public Account getAccount() {
+		Long recWindow = (long) 59999;
+		Account account = client.getAccount(recWindow, System.currentTimeMillis());
+		return account;
+	}
+
 	@Override
 	public void run() {
+		Long recWindow = (long) 59999;
+
 		BotController bot = BotController.getInstance();
 		ArrayList<String> symbols = MyFunctions.getAllUSDTSymbol(client);
-		ArrayList<String> buySymbols = new ArrayList<String>();
-		ArrayList<String> sellSymbols = new ArrayList<String>();
-		ArrayList<String> bollingerBuySymbols = new ArrayList<String>();
-		ArrayList<String> bollingerSellSymbols = new ArrayList<String>();
-		bot.sendSignal("Inizio ora con intervallo: " + interval.toString());
-		bot.sendSellButton("DOGEUSDT ha rotto le palle");
-		while (true) {
+
+		for (int i = 0; i < symbols.size(); i += 5) {
+			String symbol = symbols.get(i);
+			Account account = getAccount();
+			Double saldo = Double.parseDouble(account.getAssetBalance("USDT").getFree());
+			String quote = symbol.substring(0, symbol.indexOf("USDT"));
+			Double price = Double.parseDouble(client.getPrice(symbol).getPrice());
+			String quantity = getBuyQuantity(25.0, saldo, price);
+			NewOrder Order = new NewOrder(symbol, OrderSide.BUY, OrderType.MARKET, null, quantity)
+					.recvWindow(recWindow);
+			client.newOrder(Order);
+
 			try {
-				for (int i = 0; i < symbols.size(); i++) {
-					String symbol = symbols.get(i);
-					ArrayList<Candlestick> candles = (ArrayList<Candlestick>) client.getCandlestickBars(symbol,
-							interval);
-					if (candles.size() > 20) {
-						BollingerBand bands = new BollingerBand(candles);
-						double price = Double.parseDouble(candles.get(candles.size() - 1).getClose());
-
-						if (!buySymbols.contains(symbol)) {
-							if (ultimeCandeleSopraLaMedia(5, candles)) {
-								bot.sendBuyButton(symbol + " ha rotto la resistenza");
-								buySymbols.add(symbol);
-							}
-						}
-
-						if (Oscillators.getRSI14(candles) < 30 && price < bands.getLower()
-								&& !bollingerBuySymbols.contains(symbol)) {
-							bollingerBuySymbols.add(symbol);
-						}
-
-						if (bollingerBuySymbols.contains(symbol) && Oscillators.getRSI14(candles) > 30) {
-							bot.sendSignal(symbol + " aveva rotto il supporto ma ora rsi e tornato sopra a 30");
-						}
-					}
-				}
-			} catch (BinanceApiException e) {
-				client = clientInitialization();
-				System.out.println("C'è stato un errore di connessione");
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
+
+			String balance = getSellQuantity(quote, price);
+			Order = new NewOrder(symbol, OrderSide.SELL, OrderType.MARKET, null, balance).recvWindow(recWindow);
+			System.out.println(quote + ": " + balance);
+			// client.newOrder(Order);
 		}
+
+	}
+
+	private String getSellQuantity(String quote, Double price) {
+		Account account = getAccount();
+		String balance = account.getAssetBalance(quote).getFree();
+		if (price < 1) {
+			balance = balance.substring(0, balance.indexOf("."));
+		} else {
+			int cont = price.toString().indexOf(".") + 1;
+			balance = balance.substring(0, balance.indexOf(".") + cont);
+		}
+		return balance;
+	}
+
+	private String getBuyQuantity(double perc, double saldo, Double price) {
+		Double amount = (saldo * (perc) / 100) / price;
+		String am = amount.toString();
+		int cont;
+		if (price > 1) {
+			cont = price.toString().indexOf(".") + 2;
+			am = am.substring(0, am.indexOf(".") + cont);
+		} else {
+			am = am.substring(0, am.indexOf("."));
+		}
+		return am;
 	}
 
 	private void checkForAsset(String symbol, BinanceApiRestClient client) {
